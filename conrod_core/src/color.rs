@@ -223,8 +223,8 @@ impl Color {
         let luminance = self.luminance();
         let Rgba(r, g, b, a) = self.to_rgb();
         let (r, g, b) = {
-            if      luminance > 0.8 { (r      , g - 0.2, b - 0.2) }
-            else if luminance < 0.2 { (r + 0.4, g + 0.2, b + 0.2) }
+            if      luminance > 0.8 { (r - 0.1, g - 0.1, b - 0.1) }
+            else if luminance < 0.2 { (r + 0.1, g + 0.1, b + 0.1) }
             else {
                 (clampf32((1.0 - r) * 0.75 + r),
                  clampf32((1.0 - g) * 0.25 + g),

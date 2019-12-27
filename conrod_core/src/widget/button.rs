@@ -126,7 +126,7 @@ pub struct TimesClicked(pub u16);
 
 impl TimesClicked {
     /// `true` if the `Button` was clicked one or more times.
-    pub fn was_clicked(self) -> bool { self.0 > 0 }
+    pub fn was_clicked(&self) -> bool { self.0 > 0 }
 }
 
 impl Iterator for TimesClicked {
