@@ -909,7 +909,7 @@ impl Ui {
     /// Get an immutable reference to global input. Handles aggregation of events and providing them to Widgets
     ///
     /// Can be used to access the current input state, e.g. which widgets are currently capturing inputs.
-    pub fn global_input(&self) -> &input::Global {
+    pub fn global_input(&mut self) -> &input::Global {
         &self.global_input
     }
 

@@ -31,5 +31,5 @@ void main() {
         trgt = v_Color;
         trgt = pow(trgt, vec4(0.4545));
     }
-    Target0 = pow(trgt, vec4(2.2));
+    Target0 = trgt;
 }

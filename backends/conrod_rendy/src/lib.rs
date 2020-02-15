@@ -53,6 +53,9 @@ lazy_static::lazy_static! {
     ).expect("failed to construct `SpirvShader` from bytes");
 
     static ref FRAGMENT: SpirvShader = SpirvShader::from_bytes(
+        #[cfg(target_arch = "wasm32")]
+        include_bytes!("shaders/frag_web.spv"),
+        #[cfg(not(target_arch = "wasm32"))]
         include_bytes!("shaders/frag.spv"),
         hal::pso::ShaderStageFlags::FRAGMENT,
         "main",
@@ -117,12 +120,20 @@ where
     ) -> Result<Self, rendy::texture::BuildError> {
         let [width, height] = dimensions;
         let img_state = sampler_img_state(queue_id);
+
+        let sampler_info = rendy::hal::image::SamplerDesc::new(
+            rendy::hal::image::Filter::Linear,
+            rendy::hal::image::WrapMode::Mirror,
+        );
+
         let texture = TextureBuilder::new()
-            .with_raw_data(bytes, Format::Rgba8Srgb)
+            .with_raw_data(bytes, Format::Rgba8Unorm)
             .with_data_width(width)
             .with_data_height(height)
             .with_kind(Kind::D2(width, height, 1, 1))
             .with_view_kind(ViewKind::D2)
+            .with_sampler_info(sampler_info)
+            //.with_mip_levels(rendy::texture::MipLevels::GenerateAuto) //unimplemeneted!!!!
             .build(img_state, factory)?;
         Ok(UiTexture { texture })
     }
@@ -214,8 +225,17 @@ where
     type Pipeline = UiPipeline<B>;
 
     fn depth_stencil(&self) -> Option<DepthStencilDesc> {
-        None
+        //None
+        Some(rendy::hal::pso::DepthStencilDesc {
+            depth: Some(rendy::hal::pso::DepthTest {
+                fun: rendy::hal::pso::Comparison::LessEqual,
+                write: true,
+            }),
+            depth_bounds: false,
+            stencil: None,
+        })
     }
+    
 
     fn vertices(&self) -> Vec<(Vec<Element<Format>>, u32, VertexInputRate)> {
         vec![
@@ -391,7 +411,7 @@ where
             .map(|(img_id, descriptors)| {
                 hal::pso::DescriptorSetWrite {
                     set: descriptor_sets[img_id].raw(),
-                    binding: 0,
+                    binding: 1,
                     array_offset: 0,
                     descriptors,
                 }
@@ -445,17 +465,18 @@ where
             Some(ref b) => b,
         };
 
-        unsafe {
-            // Bind the default descriptor set.
-            encoder.bind_graphics_descriptor_sets(
-                layout,
-                0,
-                std::iter::once(self.default_descriptor_set.raw()),
-                std::iter::empty::<u32>(),
-            );
-        }
-
         for cmd in self.mesh.commands() {
+            
+            unsafe {
+                // Bind the default descriptor set.
+                encoder.bind_graphics_descriptor_sets(
+                    layout,
+                    0,
+                    std::iter::once(self.default_descriptor_set.raw()),
+                    std::iter::empty::<u32>(),
+                );
+            }
+
             match cmd {
                 mesh::Command::Draw(draw) => match draw {
                     mesh::Draw::Image(img_id, v_range) => {
@@ -474,6 +495,7 @@ where
                             );
                             encoder.bind_vertex_buffers(0, Some((buffer.raw(), 0)));
                             encoder.draw(vertices_range, instances_range);
+                            
                         }
                     }
 
@@ -509,7 +531,7 @@ where
         }
     }
 
-    fn dispose(self, _factory: &mut Factory<B>, _aux: &T) {}
+    fn dispose(self, factory: &mut Factory<B>, _aux: &T) { }
 }
 
 fn sampler_img_state(queue_id: QueueId) -> ImageState {

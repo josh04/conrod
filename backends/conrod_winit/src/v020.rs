@@ -156,7 +156,10 @@ macro_rules! v020_convert_mouse_button {
 macro_rules! v020_convert_window_event {
     ($event:expr, $window:expr) => {{
         // The window size in points.
-        let (win_w, win_h): (f64, f64) = $window.inner_size().into();
+        let scale_factor = $window.scale_factor();
+        let phys_wind = $window.inner_size();
+        let lg_size = phys_wind;//.to_logical(scale_factor);
+        let (win_w, win_h): (f64, f64) = (lg_size.width as f64, lg_size.height as f64);
 
         // Translate the coordinates from top-left-origin-with-y-down to centre-origin-with-y-up.
         let tx = |x: conrod_core::Scalar| x - win_w / 2.0;
@@ -167,7 +170,8 @@ macro_rules! v020_convert_window_event {
         let map_mouse = |button| $crate::v020_convert_mouse_button!(button);
 
         match $event {
-            winit::event::WindowEvent::Resized(winit::dpi::LogicalSize { width, height }) => {
+            winit::event::WindowEvent::Resized(size) => {
+                let winit::dpi::LogicalSize{ width, height } : winit::dpi::LogicalSize<f64> = size.to_logical($window.scale_factor());
                 Some(conrod_core::event::Input::Resize(width as _, height as _).into())
             },
 
@@ -198,7 +202,7 @@ macro_rules! v020_convert_window_event {
             },
 
             winit::event::WindowEvent::Touch(winit::event::Touch { phase, location, id, .. }) => {
-                let winit::dpi::LogicalPosition { x, y } = location;
+                let winit::dpi::LogicalPosition { x, y } : winit::dpi::LogicalPosition<f64> = location.to_logical($window.scale_factor());
                 let phase = match phase {
                     winit::event::TouchPhase::Started => conrod_core::input::touch::Phase::Start,
                     winit::event::TouchPhase::Moved => conrod_core::input::touch::Phase::Move,
@@ -212,15 +216,18 @@ macro_rules! v020_convert_window_event {
             }
 
             winit::event::WindowEvent::CursorMoved { position, .. } => {
-                let winit::dpi::LogicalPosition { x, y } = position;
+                let winit::dpi::LogicalPosition { x, y } : winit::dpi::LogicalPosition<f64> = position.to_logical($window.scale_factor());
                 let x = tx(x as conrod_core::Scalar);
                 let y = ty(y as conrod_core::Scalar);
+                web_sys::console::log_1(&format!("conrod int. mouse logi: {} {} {}", position.x, position.y, $window.scale_factor()).to_string().into());
+                web_sys::console::log_1(&format!("conrod int. mouse phys: {} {} {}", x, y, $window.scale_factor()).to_string().into());
                 let motion = conrod_core::input::Motion::MouseCursor { x: x, y: y };
                 Some(conrod_core::event::Input::Motion(motion).into())
             },
 
             winit::event::WindowEvent::MouseWheel { delta, .. } => match delta {
-                winit::event::MouseScrollDelta::PixelDelta(winit::dpi::LogicalPosition { x, y }) => {
+                winit::event::MouseScrollDelta::PixelDelta(position) => {
+                    let winit::dpi::LogicalPosition { x, y } : winit::dpi::LogicalPosition<f64> = position;
                     let x = x as conrod_core::Scalar;
                     let y = -y as conrod_core::Scalar;
                     let motion = conrod_core::input::Motion::Scroll { x: x, y: y };
@@ -243,9 +250,11 @@ macro_rules! v020_convert_window_event {
                     Some(conrod_core::event::Input::Release(conrod_core::input::Button::Mouse(map_mouse(button))).into()),
             },
 
-            winit::event::WindowEvent::RedrawRequested => {
+            /*
+            winit::event::WindowEvent::RedrawRequested(_) => {
                 Some(conrod_core::event::Input::Redraw)
             },
+            */
 
             _ => None,
         }

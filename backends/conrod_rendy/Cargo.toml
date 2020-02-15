@@ -5,9 +5,9 @@ authors = ["David Partouche <david@kaligs.com>"]
 edition = "2018"
 
 [dependencies]
-conrod_core = { path = "../../conrod_core", version = "0.68" }
+conrod_core = { path = "../../conrod_core" }
 lazy_static = "1.4.0"
-rendy = { version = "0.5.1", default-features = false, features = ["base", "texture"] }
+rendy = { path = "../../../rendy/rendy", version = "0.5.1", default-features = false, features = ["base", "texture", "init-winit", "gl"] }
 
 [features]
 empty = ["rendy/empty"]
@@ -27,4 +27,3 @@ image = "0.22"
 
 [[example]]
 name = "all_winit_rendy"
-required-features = ["init-winit"]

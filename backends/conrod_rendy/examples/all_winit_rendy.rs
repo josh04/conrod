@@ -40,7 +40,7 @@ impl<'a> conrod_winit::WinitWindow for WindowRef<'a> {
         Some(winit::window::Window::inner_size(&self.0).into())
     }
     fn hidpi_factor(&self) -> f32 {
-        winit::window::Window::hidpi_factor(&self.0) as _
+        winit::window::Window::scale_factor(&self.0) as _
     }
 }
 
@@ -51,7 +51,7 @@ fn main() {
     // Create the window manager
     let event_loop = EventLoop::new();
     let window_builder = WindowBuilder::new()
-        .with_inner_size((WIN_W, WIN_H).into())
+        .with_inner_size(winit::dpi::PhysicalSize{width: WIN_W, height: WIN_H})
         .with_title("Conrod with Rendy and winit");
 
     // Create Ui and Ids of widgets to instantiate
@@ -86,9 +86,9 @@ fn main() {
             let mut image_map = conrod_core::image::Map::new();
             let rust_logo = image_map.insert(image);
             let app = conrod_example_shared::DemoApp::new(rust_logo);
-            let dpi_factor = window.hidpi_factor();
+            let dpi_factor = window.scale_factor();
             let aux = SimpleUiAux { ui, image_map, dpi_factor };
-            let size = window.inner_size().to_physical(dpi_factor);
+            let size = window.inner_size();
             let win_size = [size.width as u32, size.height as u32];
             let graph = create_graph(win_size, &mut factory, &mut families, surface, &aux);
             run(event_loop, aux, ids, app, factory, families, window, Some(graph));
@@ -107,9 +107,7 @@ pub fn run<B: Backend>(
     mut graph: Option<Graph<B, SimpleUiAux<B>>>,
 ) {
     event_loop.run(move |event, _, control_flow| {
-        if let Some(event) = convert_event(event.clone(), &window) {
-            aux.ui.handle_event(event);
-        }
+        
 
         // Update widgets if any event has happened
         if aux.ui.global_input().events().next().is_some() {
@@ -118,28 +116,31 @@ pub fn run<B: Backend>(
         }
 
         match event {
-            Event::EventsCleared => {
+            Event::MainEventsCleared => {
                 factory.maintain(&mut families);
                 if let Some(graph) = graph.as_mut() {
                     graph.run(&mut factory, &mut families, &aux);
                 }
             }
-            Event::WindowEvent { event, .. } => match event {
+            Event::WindowEvent { window_id: _, event: ref wevent } => match wevent {
                 WindowEvent::CloseRequested | WindowEvent::Destroyed => *control_flow = ControlFlow::Exit,
                 WindowEvent::Resized(size) => {
-                    let size = size.to_physical(window.hidpi_factor());
                     let win_size = [size.width as u32, size.height as u32];
                     recreate_graph(win_size, &mut factory, &mut families, &window, &aux, &mut graph);
                 }
-                WindowEvent::HiDpiFactorChanged(dpi_factor) => {
-                    aux.dpi_factor = dpi_factor;
-                    let size = window.inner_size().to_physical(dpi_factor);
+                WindowEvent::ScaleFactorChanged{scale_factor, new_inner_size} => {
+                    aux.dpi_factor = *scale_factor;
+                    let size = window.inner_size();
                     let win_size = [size.width as u32, size.height as u32];
                     recreate_graph(win_size, &mut factory, &mut families, &window, &aux, &mut graph);
                 }
                 _ => (),
             }
             _ => (),
+        }
+
+        if let Some(event) = convert_event(event.to_static().unwrap(), &window) {
+            aux.ui.handle_event(event);
         }
 
         if *control_flow == ControlFlow::Exit {
